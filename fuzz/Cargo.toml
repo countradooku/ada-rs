@@ -1,0 +1,29 @@
+[package]
+name = "ada-rs-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2024"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+ada-rs = { path = "..", features = ["url-pattern"] }
+libfuzzer-sys = "0.4"
+
+[[bin]]
+name = "parse"
+path = "fuzz_targets/parse.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "setters"
+path = "fuzz_targets/setters.rs"
+test = false
+doc = false
+bench = false
+
+[workspace]
+members = ["."]
