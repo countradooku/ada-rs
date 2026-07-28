@@ -30,6 +30,51 @@ assert_eq!(
 # Ok::<(), ada_rs::ParseError>(())
 ```
 
+## Benchmarks
+
+Measured on an Apple M5 Pro running macOS 26.5 (arm64), using Rust 1.97.1,
+LLVM 22.1.8, `opt-level=3`, one codegen unit, and fat LTO. Each parser receives
+the same preloaded inputs and the benchmark consumes the normalized
+serialization with `black_box`.
+
+The focused corpus contains five already-normalized web URLs and four
+normalization-heavy URLs covering credentials, an opaque authority URL, IPv4,
+IPv6, and a Unicode domain/path.
+
+| Parser | All 9 | Normalized 5 | Complex 4 |
+| --- | ---: | ---: | ---: |
+| **ada-rs** | **1.041 µs** | **244.2 ns** | **790.4 ns** |
+| C++ Ada 4.0.0 | 1.124 µs | 311.9 ns | 790.4 ns |
+| Servo `url` | 1.666 µs | 708.4 ns | 916.4 ns |
+
+Over the full corpus, `ada-rs` was 7.4% faster than C++ Ada and 37.5% faster
+than Servo `url`. It was 21.7% faster than C++ Ada on the normalized subset and
+tied at the timer's median resolution on the complex subset.
+
+The broader benchmark repeatedly parses all 891 cases from the pinned WHATWG
+URL fixture, including malformed inputs designed to exercise error paths:
+
+| WPT subset | ada-rs | C++ Ada | Difference |
+| --- | ---: | ---: | ---: |
+| All cases | **124.5 µs** | 125.2 µs | 0.6% faster |
+| Valid cases | **106.1 µs** | 109.6 µs | 3.2% faster |
+| Invalid cases | **18.20 µs** | 24.66 µs | 26.2% faster |
+| With a base URL | **67.74 µs** | 68.16 µs | 0.6% faster |
+| Without a base URL | 57.70 µs | **57.45 µs** | 0.4% slower |
+
+Reproduce the measurements with:
+
+```console
+cargo bench --features bench-ada --bench parse -- \
+  --min-time 3 --sample-count 100
+cargo bench --features bench-ada --bench wpt -- \
+  --min-time 3 --sample-count 100
+```
+
+These are local measurements, not universal performance claims. Results should
+be remeasured on each target CPU and toolchain. Full methodology and raw
+environment details are in [`docs/BENCHMARKS.md`](docs/BENCHMARKS.md).
+
 ## Development
 
 ```console
@@ -42,12 +87,6 @@ cargo check --manifest-path fuzz/Cargo.toml
 The pinned upstream corpus currently executes 4,350 URL, setter, IDNA,
 percent-encoding, and URLPattern cases. Deterministic differential tests add
 10,000 URL cases and 5,000 SearchParams mutation sequences against C++ Ada.
-
-On an Apple M5 Pro, the nine-URL real-web comparison corpus measured a
-1.041 µs median for `ada-rs`, 1.124 µs for C++ Ada, and 1.666 µs for `url`.
-The complete malformed-heavy WPT stress corpus measured 124.5 µs for `ada-rs`
-and 125.2 µs for C++ Ada. Results and the methodology are recorded in
-[`docs/BENCHMARKS.md`](docs/BENCHMARKS.md).
 
 See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for invariants, fallback
 boundaries, and the optimization policy.
